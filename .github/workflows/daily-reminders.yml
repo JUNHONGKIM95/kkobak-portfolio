@@ -1,0 +1,19 @@
+name: Daily cycle reminders
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    if: github.repository == 'JUNHONGKIM95/kkobak'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake API and dispatch 09:00 KST reminders
+        env:
+          BACKEND_URL: ${{ vars.KKOBAK_BACKEND_URL || 'https://kkobak-api.onrender.com' }}
+        run: |
+          test -n "$BACKEND_URL"
+          curl --fail --retry 5 --retry-delay 15 --max-time 180 \
+            -X POST "$BACKEND_URL/api/notifications/dispatch-scheduled"
