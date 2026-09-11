@@ -1,4 +1,4 @@
-<img width="1733" height="908" alt="kkobak-social-preview" src="https://github.com/user-attachments/assets/bb22ba07-62ca-4a6d-bf22-9e122ffea175" />
+<img width="1733" height="908" alt="kkobak-social-preview" src="https://github.com/user-attachments/assets/e65d2fe8-32c7-4947-8893-381a6020545b" />
 
 # 꼬박꼬박 · KKOBAK
 
