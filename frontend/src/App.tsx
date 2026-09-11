@@ -262,14 +262,13 @@ function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) 
       <button className="brand-button" onClick={() => setView('home')} aria-label="꼬박꼬박 홈"><Brand /></button>
       <div className="header-actions">
         {!standalone && (installPrompt || isIos || isChromium) && <button className="install-button" onClick={() => void installApp()}><span>⇩</span><b>앱 설치</b></button>}
+        <button className="logout-button" onClick={() => void logout()} aria-label="로그아웃"><span aria-hidden="true">↪</span><b>로그아웃</b></button>
         <button className={`icon-button notification-button ${notificationState === 'enabled' ? 'enabled' : ''}`} aria-label={notificationState === 'enabled' ? '알림 켜짐' : '알림 켜기'} onClick={async () => { try { await enablePush(); setNotificationState('enabled'); setToast('예정일 오전 9시 알림을 켰어요'); } catch (error) { setToast(error instanceof Error && error.message === 'denied' ? '브라우저 설정에서 알림 권한을 허용해 주세요' : error instanceof Error && error.message === 'not-configured' ? '서버 알림 키 설정이 필요해요' : '알림을 설정하지 못했어요'); } }}><span>♧</span>{notificationState === 'enabled' ? <i className="enabled-dot" /> : dueTasks.length > 0 && <i />}</button>
         <div className="profile-chip"><span className="avatar">{user.displayName.slice(0, 1)}</span><span><b>{user.displayName}</b><small>@{user.username}</small></span></div>
-        <button className="logout-button" onClick={() => void logout()} aria-label="로그아웃"><span aria-hidden="true">↪</span><b>로그아웃</b></button>
       </div>
     </header>
     <nav className="bottom-nav" aria-label="주요 메뉴">
       {tabs.map((tab) => <button key={tab.id} className={`nav-item ${view === tab.id ? 'active' : ''}`} onClick={() => changeView(tab.id)}><span className="nav-symbol">{tab.symbol}</span>{tab.label}</button>)}
-      <button className="nav-item mobile-nav-logout" onClick={() => void logout()} aria-label="로그아웃"><span className="nav-symbol" aria-hidden="true">↪</span>로그아웃</button>
     </nav>
 
     {view === 'home' && <>
