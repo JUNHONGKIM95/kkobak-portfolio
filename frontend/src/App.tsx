@@ -303,7 +303,7 @@ function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) 
       <section className="upcoming-section"><div className="section-heading compact"><div><span className="title-icon lavender">◷</span><div><h2>다가오는 주기</h2><p>미리 알아두면 마음이 가벼워요</p></div></div><button className="text-button" onClick={() => setView('cycles')}>전체 보기 →</button></div><div className="mini-grid">{tasks.filter((task) => task.daysLeft > 0 && !task.completed).slice(0, 3).map((task) => <button key={task.id} className="mini-card" onClick={() => setView('cycles')}><span className={`task-emoji ${task.color}`}>{task.imageUrl ? <img src={task.imageUrl} alt="" /> : task.emoji}</span><span><small>{task.category}</small><b>{task.title}</b><em>{dday(task.daysLeft)}</em></span></button>)}</div></section>
     </>}
 
-    {view === 'cycles' && <section className="page-view">
+    {view === 'cycles' && <section className="page-view cycles-page">
       <div className="page-title"><div><p className="eyebrow"><span>↻</span> MY CYCLES</p><h1>내 주기 관리</h1><p>생활 속 반복되는 일들을 한곳에서 관리해요.</p></div><button className="primary-button" onClick={openCreate}>＋ 새 주기 추가</button></div>
       <div className="toolbar"><div className="filters">{(['전체', '교체', '청소', '세탁'] as const).map((item) => <button className={filter === item ? 'selected' : ''} key={item} onClick={() => setFilter(item)}>{item}</button>)}</div><label className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="주기 검색" /></label></div>
       <div className="cycle-summary"><div><span>전체 주기</span><strong>{tasks.length}</strong></div><div><span>오늘 예정</span><strong>{dueTasks.length}</strong></div><div><span>완료</span><strong>{completed}</strong></div></div>
