@@ -13,6 +13,8 @@ export type ApiCycle = {
   color: string;
   completedToday: boolean;
   daysLeft: number;
+  ended: boolean;
+  endedAt?: string | null;
 };
 
 export type CycleInput = Pick<ApiCycle, 'title' | 'category' | 'cycleType' | 'emoji' | 'intervalValue' | 'intervalUnit' | 'startDate' | 'imageUrl' | 'color'>;
@@ -54,6 +56,8 @@ export type ApiReport = {
     actionRequired: boolean;
     nextDueDate: string;
     achievementRate: number | null;
+    ended: boolean;
+    endedAt?: string | null;
   }[];
 };
 
@@ -148,6 +152,8 @@ export const cycleApi = {
   delete: (id: string) => request<void>(`/api/cycles/${id}`, { method: 'DELETE' }),
   complete: (id: string) => request<ApiCycle>(`/api/cycles/${id}/complete`, { method: 'POST' }),
   undo: (id: string) => request<ApiCycle>(`/api/cycles/${id}/complete`, { method: 'DELETE' }),
+  end: (id: string) => request<ApiCycle>(`/api/cycles/${id}/end`, { method: 'POST' }),
+  reopen: (id: string) => request<ApiCycle>(`/api/cycles/${id}/end`, { method: 'DELETE' }),
   claim: (ownerKey: string) => request<{ cycles: number; completions: number; subscriptions: number }>('/api/cycles/claim', { method: 'POST', body: JSON.stringify({ ownerKey }) }),
 };
 

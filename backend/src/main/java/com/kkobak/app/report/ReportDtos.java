@@ -1,6 +1,7 @@
 package com.kkobak.app.report;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public final class ReportDtos {
@@ -21,7 +22,9 @@ public final class ReportDtos {
             int trackedRounds,
             boolean actionRequired,
             LocalDate nextDueDate,
-            Integer achievementRate) { }
+            Integer achievementRate,
+            boolean ended,
+            LocalDateTime endedAt) { }
     public record ReportResponse(
             int totalCycles,
             int onTrackCycles,

@@ -16,4 +16,22 @@ class CycleItemTests {
         assertThat(item.getLastCompletedDate()).isEqualTo(completedDate);
         assertThat(item.getNextDueDate()).isEqualTo(LocalDate.of(2026, 12, 11));
     }
+
+    @Test
+    void endedCycleCanBeReopenedWithoutLosingItsSchedule() {
+        CycleItem item = new CycleItem("user-1", "필터 교체", "주방", "교체", "✨", 3, "개월", LocalDate.of(2026, 9, 11), null, "blue");
+        LocalDate nextDueDate = item.getNextDueDate();
+
+        item.end();
+
+        assertThat(item.isEnded()).isTrue();
+        assertThat(item.getEndedAt()).isNotNull();
+        assertThat(item.getNextDueDate()).isEqualTo(nextDueDate);
+
+        item.reopen();
+
+        assertThat(item.isEnded()).isFalse();
+        assertThat(item.getEndedAt()).isNull();
+        assertThat(item.getNextDueDate()).isEqualTo(nextDueDate);
+    }
 }

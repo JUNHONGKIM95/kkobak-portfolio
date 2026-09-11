@@ -450,3 +450,40 @@ button { cursor:pointer; }
   .month-buttons button { min-width:32px; padding:0 8px; }
   .form-row { gap:7px; }
 }
+
+/* Ended cycle archive */
+.task-actions .end { color:#a47b48; background:#fff6e8; }
+.task-actions .reopen { color:#438b78; background:#e9f8f2; }
+.task-card.is-ended { opacity:.72; border-color:#e1e7eb; background:rgba(245,248,250,.9); box-shadow:none; }
+.task-card.is-ended h3 { color:#6f7f8b; }
+.task-card.is-ended .task-emoji { filter:saturate(.55); }
+.task-card.is-ended .check-button { border-color:#dce3e8; color:#9aa7b0; background:#eef2f4; cursor:default; }
+.task-card.is-ended .due-block strong { color:#8796a1; }
+.ended-cycles-panel { margin-top:42px; padding:24px; border:1px solid #dfe8ee; border-radius:22px; background:rgba(244,248,250,.78); }
+.ended-cycles-head { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:18px; }
+.ended-cycles-head>div { min-width:0; }
+.ended-cycles-head span { display:block; margin-bottom:5px; color:#8ba0ad; font-size:8px; font-weight:850; letter-spacing:.12em; }
+.ended-cycles-head h2 { margin:0; color:#526879; font-size:18px; letter-spacing:-.04em; }
+.ended-cycles-head p { margin:7px 0 0; color:#94a3ad; font-size:10px; line-height:1.55; word-break:keep-all; }
+.ended-cycles-head>strong { min-width:34px; height:34px; display:grid; place-items:center; border-radius:11px; color:#718694; background:#e4ebef; font-size:13px; }
+.ended-task-list .task-card:last-child { margin-bottom:0; }
+.ended-empty { padding:28px 16px; border:1px dashed #d7e1e7; border-radius:16px; color:#96a3ac; background:rgba(255,255,255,.5); text-align:center; font-size:10px; }
+.habit-ended-divider { display:flex; align-items:center; gap:8px; margin:13px 0 2px; padding-top:16px; border-top:1px dashed #d6e1e8; color:#7d909d; font-size:9px; font-weight:800; }
+.habit-ended-divider::after { content:""; height:1px; flex:1; background:#e4ebef; }
+.habit-ended-divider strong { order:3; min-width:21px; height:21px; display:grid; place-items:center; border-radius:7px; color:#768995; background:#e7edf1; font-size:8px; }
+.habit-row.is-ended { opacity:.7; background:#f5f8fa; }
+.habit-row.is-ended .habit-icon { filter:saturate(.55); }
+.habit-title .ended-badge { color:#768995; background:#e5ecef; }
+.habit-row.is-ended .habit-track span { background:linear-gradient(90deg,#aebdc6,#91a3ae); }
+
+@media (max-width:700px) {
+  .ended-cycles-panel { margin-top:32px; padding:18px 12px; border-radius:19px; }
+  .ended-cycles-head { align-items:flex-start; margin-bottom:14px; }
+  .ended-cycles-head p { max-width:260px; }
+  .task-actions { flex-wrap:wrap; justify-content:flex-end; }
+}
+
+@media (max-width:390px) {
+  .ended-cycles-head p { max-width:230px; }
+  .habit-title .ended-badge { margin-left:0; }
+}

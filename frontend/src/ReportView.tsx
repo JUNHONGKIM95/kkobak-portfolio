@@ -26,6 +26,8 @@ export default function ReportView({ userId }: { userId: string }) {
   if (loading) return <section className="page-view report-page"><ReportTitle /><div className="report-loading">완료 기록을 모아보는 중이에요…</div></section>;
   if (error || !report) return <section className="page-view report-page"><ReportTitle /><div className="report-loading"><p>{error}</p><button onClick={() => void load()}>다시 불러오기</button></div></section>;
   const cycleAchievements = report.cycleAchievements ?? [];
+  const activeAchievements = cycleAchievements.filter((item) => !item.ended);
+  const endedAchievements = cycleAchievements.filter((item) => item.ended);
 
   return <section className="page-view report-page">
     <ReportTitle />
@@ -66,19 +68,21 @@ export default function ReportView({ userId }: { userId: string }) {
 
     <article className="report-panel habit-panel">
       <div className="report-panel-head"><div><span>HABIT BY CYCLE</span><h2>주기별 습관 달성률</h2></div><small>예정일 안에 완료한 회차를 기준으로 계산해요</small></div>
-      {cycleAchievements.length ? <div className="habit-list">{cycleAchievements.map((item) => {
-        const measured = item.achievementRate !== null;
-        return <div className={`habit-row ${item.actionRequired ? 'needs-action' : ''}`} key={item.cycleId}>
-          <span className={`habit-icon ${item.color}`}>{item.imageUrl ? <img src={item.imageUrl} alt="" /> : item.emoji}</span>
-          <div className="habit-main">
-            <div className="habit-title"><div><strong>{item.title}</strong><small>{item.cycleType}</small></div><em>{measured ? `${item.achievementRate}%` : '측정 전'}</em></div>
-            <div className="habit-track" role="progressbar" aria-label={`${item.title} 습관 달성률`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={item.achievementRate ?? 0}><span style={{ width: `${item.achievementRate ?? 0}%` }} /></div>
-            <div className="habit-detail"><span>{measured ? `제때 완료 ${item.onTimeCount}/${item.trackedRounds}회` : '첫 예정일이 지나면 측정을 시작해요'}</span><span>{item.actionRequired ? '지금 완료할 차례예요' : `다음 예정 ${dayFormat.format(new Date(`${item.nextDueDate}T00:00:00`))}`}</span></div>
-          </div>
-        </div>;
-      })}</div> : <div className="report-empty">주기를 등록하면 각각의 습관 달성률을 확인할 수 있어요.</div>}
+      {cycleAchievements.length ? <div className="habit-list">{activeAchievements.map((item) => <HabitRow key={item.cycleId} item={item} />)}{endedAchievements.length > 0 && <div className="habit-ended-divider"><span>종료한 주기</span><strong>{endedAchievements.length}</strong></div>}{endedAchievements.map((item) => <HabitRow key={item.cycleId} item={item} />)}</div> : <div className="report-empty">주기를 등록하면 각각의 습관 달성률을 확인할 수 있어요.</div>}
     </article>
   </section>;
+}
+
+function HabitRow({ item }: { item: ApiReport['cycleAchievements'][number] }) {
+  const measured = item.achievementRate !== null;
+  return <div className={`habit-row ${item.actionRequired ? 'needs-action' : ''} ${item.ended ? 'is-ended' : ''}`}>
+    <span className={`habit-icon ${item.color}`}>{item.imageUrl ? <img src={item.imageUrl} alt="" /> : item.emoji}</span>
+    <div className="habit-main">
+      <div className="habit-title"><div><strong>{item.title}</strong><small>{item.cycleType}</small>{item.ended && <small className="ended-badge">종료됨</small>}</div><em>{measured ? `${item.achievementRate}%` : '측정 전'}</em></div>
+      <div className="habit-track" role="progressbar" aria-label={`${item.title} 습관 달성률`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={item.achievementRate ?? 0}><span style={{ width: `${item.achievementRate ?? 0}%` }} /></div>
+      <div className="habit-detail"><span>{measured ? `제때 완료 ${item.onTimeCount}/${item.trackedRounds}회` : item.ended ? '완료 기록 없이 종료했어요' : '첫 예정일이 지나면 측정을 시작해요'}</span><span>{item.ended ? item.endedAt ? `${dayFormat.format(new Date(`${item.endedAt.slice(0, 10)}T00:00:00`))} 종료` : '종료된 주기' : item.actionRequired ? '지금 완료할 차례예요' : `다음 예정 ${dayFormat.format(new Date(`${item.nextDueDate}T00:00:00`))}`}</span></div>
+    </div>
+  </div>;
 }
 
 function ReportTitle() {

@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ public class ReportService {
     public ReportResponse summary(String ownerKey) {
         LocalDate today = LocalDate.now(APP_ZONE);
         List<CycleItem> items = cycles.findByOwnerKeyOrderByNextDueDateAsc(ownerKey);
+        List<CycleItem> activeItems = items.stream().filter(item -> !item.isEnded()).toList();
         List<CycleCompletion> allHistory = completions.findByOwnerKeyOrderByCompletedDateAsc(ownerKey);
         List<CycleCompletion> history = allHistory.stream()
                 .filter(item -> !item.getCompletedDate().isBefore(today.minusDays(29)) && !item.getCompletedDate().isAfter(today))
@@ -41,9 +43,9 @@ public class ReportService {
         Map<LocalDate, Long> byDate = history.stream().collect(Collectors.groupingBy(CycleCompletion::getCompletedDate, Collectors.counting()));
         Map<String, List<CycleCompletion>> byCycle = allHistory.stream().collect(Collectors.groupingBy(CycleCompletion::getCycleId));
 
-        int overdue = (int) items.stream().filter(item -> item.getNextDueDate().isBefore(today)).count();
-        int dueToday = (int) items.stream().filter(item -> item.getNextDueDate().equals(today)).count();
-        int total = items.size();
+        int overdue = (int) activeItems.stream().filter(item -> item.getNextDueDate().isBefore(today)).count();
+        int dueToday = (int) activeItems.stream().filter(item -> item.getNextDueDate().equals(today)).count();
+        int total = activeItems.size();
         int onTrack = total - overdue - dueToday;
         int score = total == 0 ? 0 : (int) Math.round(onTrack * 100.0 / total);
         long completedLast7 = history.stream().filter(item -> !item.getCompletedDate().isBefore(today.minusDays(6))).count();
@@ -54,26 +56,29 @@ public class ReportService {
                 .toList();
 
         Set<String> knownTypes = new LinkedHashSet<>(List.of("교체", "청소", "세탁"));
-        items.stream().map(CycleItem::getCycleType).forEach(knownTypes::add);
+        activeItems.stream().map(CycleItem::getCycleType).forEach(knownTypes::add);
         List<TypeSummary> types = knownTypes.stream()
                 .map(type -> new TypeSummary(type,
-                        (int) items.stream().filter(item -> type.equals(item.getCycleType())).count(),
-                        (int) items.stream().filter(item -> type.equals(item.getCycleType()) && item.getNextDueDate().isBefore(today)).count(),
-                        (int) items.stream().filter(item -> type.equals(item.getCycleType()) && item.getNextDueDate().equals(today)).count()))
+                        (int) activeItems.stream().filter(item -> type.equals(item.getCycleType())).count(),
+                        (int) activeItems.stream().filter(item -> type.equals(item.getCycleType()) && item.getNextDueDate().isBefore(today)).count(),
+                        (int) activeItems.stream().filter(item -> type.equals(item.getCycleType()) && item.getNextDueDate().equals(today)).count()))
                 .filter(type -> type.total() > 0)
                 .toList();
 
-        List<CycleAchievement> achievements = items.stream().map(item -> {
+        List<CycleAchievement> achievements = Stream.concat(
+                items.stream().filter(item -> !item.isEnded()),
+                items.stream().filter(CycleItem::isEnded)).map(item -> {
             List<CycleCompletion> itemHistory = byCycle.getOrDefault(item.getId(), List.of());
             long completedCount = itemHistory.size();
             long onTimeCount = itemHistory.stream()
                     .filter(completion -> !completion.getCompletedDate().isAfter(completion.getPreviousNextDueDate()))
                     .count();
-            boolean actionRequired = !item.getNextDueDate().isAfter(today);
+            boolean actionRequired = !item.isEnded() && !item.getNextDueDate().isAfter(today);
             int trackedRounds = Math.toIntExact(completedCount + (actionRequired ? 1 : 0));
             Integer achievementRate = trackedRounds == 0 ? null : (int) Math.round(onTimeCount * 100.0 / trackedRounds);
             return new CycleAchievement(item.getId(), item.getTitle(), item.getCycleType(), item.getEmoji(), item.getColor(), item.getImageUrl(),
-                    completedCount, onTimeCount, completedCount - onTimeCount, trackedRounds, actionRequired, item.getNextDueDate(), achievementRate);
+                    completedCount, onTimeCount, completedCount - onTimeCount, trackedRounds, actionRequired, item.getNextDueDate(), achievementRate,
+                    item.isEnded(), item.getEndedAt());
         }).toList();
 
         return new ReportResponse(total, onTrack, overdue, dueToday, completedLast7, history.size(), score, streak(byDate.keySet(), today), daily, types, achievements);

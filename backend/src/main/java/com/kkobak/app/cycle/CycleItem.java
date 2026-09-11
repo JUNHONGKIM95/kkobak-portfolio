@@ -26,6 +26,7 @@ public class CycleItem {
     @Column(name = "next_due_date", nullable = false) private LocalDate nextDueDate;
     @Column(name = "image_url", length = 2048) private String imageUrl;
     @Column(nullable = false, length = 30) private String color;
+    @Column(name = "ended_at") private LocalDateTime endedAt;
     @Column(name = "created_at", nullable = false) private LocalDateTime createdAt;
     @Column(name = "updated_at", nullable = false) private LocalDateTime updatedAt;
 
@@ -68,6 +69,9 @@ public class CycleItem {
         this.nextDueDate = previousNext;
     }
 
+    public void end() { this.endedAt = LocalDateTime.now(); }
+    public void reopen() { this.endedAt = null; }
+
     @PrePersist
     void create() {
         if (id == null) id = UUID.randomUUID().toString();
@@ -90,6 +94,8 @@ public class CycleItem {
     public LocalDate getNextDueDate() { return nextDueDate; }
     public String getImageUrl() { return imageUrl; }
     public String getColor() { return color; }
+    public LocalDateTime getEndedAt() { return endedAt; }
+    public boolean isEnded() { return endedAt != null; }
 
     private LocalDate nextDate(LocalDate base) {
         return switch (intervalUnit) {

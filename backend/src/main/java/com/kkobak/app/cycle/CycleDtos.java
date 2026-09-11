@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 public final class CycleDtos {
     private CycleDtos() { }
@@ -26,5 +27,5 @@ public final class CycleDtos {
             String id, String title, String category, String cycleType, String emoji,
             int intervalValue, String intervalUnit, LocalDate startDate, LocalDate lastCompletedDate,
             LocalDate nextDueDate, String imageUrl, String color,
-            boolean completedToday, long daysLeft) { }
+            boolean completedToday, long daysLeft, boolean ended, LocalDateTime endedAt) { }
 }

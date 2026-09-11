@@ -53,6 +53,7 @@ public class CycleService {
     @Transactional
     public CycleResponse complete(String id, String ownerKey) {
         CycleItem item = owned(id, ownerKey);
+        if (item.isEnded()) throw new IllegalStateException("종료한 주기는 완료할 수 없습니다.");
         LocalDate today = LocalDate.now(APP_ZONE);
         if (!completions.existsByCycleIdAndOwnerKeyAndCompletedDate(id, ownerKey, today)) {
             completions.save(new CycleCompletion(item, today));
@@ -64,6 +65,7 @@ public class CycleService {
     @Transactional
     public CycleResponse undo(String id, String ownerKey) {
         CycleItem item = owned(id, ownerKey);
+        if (item.isEnded()) throw new IllegalStateException("종료한 주기의 완료 기록은 변경할 수 없습니다.");
         CycleCompletion completion = completions.findFirstByCycleIdAndOwnerKeyAndCompletedDateOrderByCreatedAtDesc(id, ownerKey, LocalDate.now(APP_ZONE)).orElseThrow(() -> new NoSuchElementException("오늘 완료한 기록이 없습니다."));
         item.restore(completion.getPreviousLastCompletedDate(), completion.getPreviousNextDueDate());
         completions.delete(completion);
@@ -75,6 +77,20 @@ public class CycleService {
         CycleItem item = owned(id, ownerKey);
         completions.deleteByCycleIdAndOwnerKey(id, ownerKey);
         cycles.delete(item);
+    }
+
+    @Transactional
+    public CycleResponse end(String id, String ownerKey) {
+        CycleItem item = owned(id, ownerKey);
+        item.end();
+        return response(item);
+    }
+
+    @Transactional
+    public CycleResponse reopen(String id, String ownerKey) {
+        CycleItem item = owned(id, ownerKey);
+        item.reopen();
+        return response(item);
     }
 
     @Transactional
@@ -97,7 +113,7 @@ public class CycleService {
     }
 
     private CycleResponse response(CycleItem item, LocalDate today, boolean completedToday) {
-        return new CycleResponse(item.getId(), item.getTitle(), item.getCategory(), item.getCycleType(), item.getEmoji(), item.getIntervalValue(), item.getIntervalUnit(), item.getStartDate(), item.getLastCompletedDate(), item.getNextDueDate(), item.getImageUrl(), item.getColor(), completedToday, ChronoUnit.DAYS.between(today, item.getNextDueDate()));
+        return new CycleResponse(item.getId(), item.getTitle(), item.getCategory(), item.getCycleType(), item.getEmoji(), item.getIntervalValue(), item.getIntervalUnit(), item.getStartDate(), item.getLastCompletedDate(), item.getNextDueDate(), item.getImageUrl(), item.getColor(), completedToday, ChronoUnit.DAYS.between(today, item.getNextDueDate()), item.isEnded(), item.getEndedAt());
     }
 
     private void validateOwner(String ownerKey) { if (ownerKey == null || ownerKey.isBlank() || ownerKey.length() > 80) throw new IllegalArgumentException("올바른 사용자 키가 필요합니다."); }

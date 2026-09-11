@@ -69,6 +69,27 @@ class ReportServiceTests {
         assertThat(achievement.achievementRate()).isEqualTo(50);
     }
 
+    @Test
+    void endedCyclesStayInAchievementsAfterActiveCyclesButNotInCurrentScore() {
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
+        CycleItem ended = cycleStarting(today.minusDays(1));
+        CycleItem active = cycleStarting(today);
+        org.springframework.test.util.ReflectionTestUtils.setField(ended, "id", "ended-cycle");
+        org.springframework.test.util.ReflectionTestUtils.setField(active, "id", "active-cycle");
+        ended.end();
+        when(cycles.findByOwnerKeyOrderByNextDueDateAsc(OWNER)).thenReturn(List.of(ended, active));
+        when(completions.findByOwnerKeyOrderByCompletedDateAsc(OWNER)).thenReturn(List.of());
+
+        ReportDtos.ReportResponse report = service.summary(OWNER);
+
+        assertThat(report.totalCycles()).isEqualTo(1);
+        assertThat(report.currentScore()).isEqualTo(100);
+        assertThat(report.cycleAchievements()).extracting(ReportDtos.CycleAchievement::cycleId)
+                .containsExactly("active-cycle", "ended-cycle");
+        assertThat(report.cycleAchievements().getLast().ended()).isTrue();
+        assertThat(report.cycleAchievements().getLast().actionRequired()).isFalse();
+    }
+
     private CycleCompletion completion(String cycleId, LocalDate completedDate, LocalDate dueDate) {
         CycleCompletion completion = mock(CycleCompletion.class);
         when(completion.getCycleId()).thenReturn(cycleId);

@@ -68,7 +68,7 @@ public class PushNotificationService {
     public DispatchResponse dispatchDueReminders() {
         if (!enabled()) return new DispatchResponse(0, 0, 0, 0);
         LocalDate today = LocalDate.now(APP_ZONE);
-        Map<String, List<CycleItem>> byOwner = cycles.findByNextDueDateLessThanEqual(today).stream().collect(Collectors.groupingBy(CycleItem::getOwnerKey));
+        Map<String, List<CycleItem>> byOwner = cycles.findByEndedAtIsNullAndNextDueDateLessThanEqual(today).stream().collect(Collectors.groupingBy(CycleItem::getOwnerKey));
         int subscriptionCount = 0;
         int delivered = 0;
         int failed = 0;

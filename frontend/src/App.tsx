@@ -22,6 +22,8 @@ type Task = {
   daysLeft: number;
   color: string;
   completed: boolean;
+  ended: boolean;
+  endedAt?: string | null;
   imageUrl?: string | null;
 };
 
@@ -79,7 +81,7 @@ function fromApi(task: ApiCycle): Task {
     interval: task.intervalValue, unit: task.intervalUnit, startDate: task.startDate,
     lastCompletedDate: task.lastCompletedDate, nextDueDate: task.nextDueDate,
     lastDone: new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(new Date(`${task.lastCompletedDate}T00:00:00`)),
-    daysLeft: task.daysLeft, color: task.color, completed: task.completedToday, imageUrl: task.imageUrl,
+    daysLeft: task.daysLeft, color: task.color, completed: task.completedToday, ended: task.ended, endedAt: task.endedAt, imageUrl: task.imageUrl,
   };
 }
 
@@ -95,6 +97,7 @@ function cachedTasks(storageKey: string) {
       found: true,
       tasks: parsed.map((task) => ({
         ...task,
+        ended: Boolean(task.ended),
         completed: task.lastCompletedDate === today,
         daysLeft: Math.round((new Date(`${task.nextDueDate}T00:00:00`).getTime() - todayTime) / 86_400_000),
       })),
@@ -118,13 +121,13 @@ export default function App() {
   return <CycleHome user={user} onLogout={() => setUser(null)} />;
 }
 
-function TaskRow({ task, onToggle, onEdit, onDelete, actions = false }: { task: Task; onToggle: (id: string) => void; onEdit?: (task: Task) => void; onDelete?: (task: Task) => void; actions?: boolean }) {
-  return <article className={`task-card ${task.daysLeft <= 0 ? 'featured' : ''} ${task.completed ? 'is-done' : ''}`}>
-    <button className="check-button" onClick={() => onToggle(task.id)} aria-label={`${task.title} ${task.completed ? '완료 취소' : '완료'}`}>{task.completed ? '✓' : ''}</button>
+function TaskRow({ task, onToggle, onEdit, onDelete, onEnd, onReopen, actions = false }: { task: Task; onToggle?: (id: string) => void; onEdit?: (task: Task) => void; onDelete?: (task: Task) => void; onEnd?: (task: Task) => void; onReopen?: (task: Task) => void; actions?: boolean }) {
+  return <article className={`task-card ${!task.ended && task.daysLeft <= 0 ? 'featured' : ''} ${task.completed ? 'is-done' : ''} ${task.ended ? 'is-ended' : ''}`}>
+    <button className="check-button" disabled={task.ended || !onToggle} onClick={() => onToggle?.(task.id)} aria-label={task.ended ? `${task.title} 종료됨` : `${task.title} ${task.completed ? '완료 취소' : '완료'}`}>{task.ended ? '–' : task.completed ? '✓' : ''}</button>
     <div className={`task-emoji ${task.color}`}>{task.imageUrl ? <img src={task.imageUrl} alt="" /> : task.emoji}</div>
     <div className="task-info"><span className="category">{task.category} · {task.type}</span><h3>{task.title}</h3><p><span>↻</span> {task.interval}{task.unit}마다 · 시작 {formatShortDate(task.startDate)} · 마지막 {task.type} {task.lastDone}</p></div>
-    <div className={`due-block ${task.daysLeft < 0 ? 'overdue' : ''}`}><span>{task.completed ? '완료했어요' : dueLabel(task.daysLeft)}</span><strong>{task.completed ? 'DONE' : dday(task.daysLeft)}</strong></div>
-    {actions && <div className="task-actions"><button onClick={() => onEdit?.(task)} aria-label={`${task.title} 수정`}>수정</button><button className="delete" onClick={() => onDelete?.(task)} aria-label={`${task.title} 삭제`}>삭제</button></div>}
+    <div className={`due-block ${!task.ended && task.daysLeft < 0 ? 'overdue' : ''}`}><span>{task.ended ? task.endedAt ? `${formatShortDate(task.endedAt.slice(0, 10))} 종료` : '반복을 종료했어요' : task.completed ? '완료했어요' : dueLabel(task.daysLeft)}</span><strong>{task.ended ? '종료됨' : task.completed ? 'DONE' : dday(task.daysLeft)}</strong></div>
+    {actions && <div className="task-actions">{task.ended ? <button className="reopen" onClick={() => onReopen?.(task)} aria-label={`${task.title} 다시 시작`}>다시 시작</button> : <><button className="end" onClick={() => onEnd?.(task)} aria-label={`${task.title} 종료`}>종료</button><button onClick={() => onEdit?.(task)} aria-label={`${task.title} 수정`}>수정</button></>}<button className="delete" onClick={() => onDelete?.(task)} aria-label={`${task.title} 삭제`}>삭제</button></div>}
   </article>;
 }
 
@@ -204,11 +207,15 @@ function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) 
     return () => { window.removeEventListener('beforeinstallprompt', handleInstallPrompt); window.removeEventListener('appinstalled', handleInstalled); };
   }, []);
 
-  const dueTasks = tasks.filter((task) => task.daysLeft <= 0 && !task.completed);
-  const todayTasks = tasks.filter((task) => task.daysLeft <= 0 || task.completed);
-  const completed = tasks.filter((task) => task.completed).length;
-  const score = Math.round(((tasks.length - dueTasks.length) / Math.max(tasks.length, 1)) * 100);
-  const visibleTasks = tasks.filter((task) => (filter === '전체' || task.type === filter) && task.title.toLowerCase().includes(query.toLowerCase()));
+  const activeTasks = tasks.filter((task) => !task.ended);
+  const endedTasks = tasks.filter((task) => task.ended);
+  const dueTasks = activeTasks.filter((task) => task.daysLeft <= 0 && !task.completed);
+  const todayTasks = activeTasks.filter((task) => task.daysLeft <= 0 || task.completed);
+  const completed = activeTasks.filter((task) => task.completed).length;
+  const score = Math.round(((activeTasks.length - dueTasks.length) / Math.max(activeTasks.length, 1)) * 100);
+  const matchesFilter = (task: Task) => (filter === '전체' || task.type === filter) && task.title.toLowerCase().includes(query.toLowerCase());
+  const visibleTasks = activeTasks.filter(matchesFilter);
+  const visibleEndedTasks = endedTasks.filter(matchesFilter);
   const dateText = new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' }).format(new Date());
 
   const installApp = async () => {
@@ -237,6 +244,27 @@ function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) 
 
   const openCreate = () => { setEditingTask(null); setModalOpen(true); };
   const openEdit = (task: Task) => { setEditingTask(task); setModalOpen(true); };
+
+  const refreshReport = () => { void reportApi.summary().then((report) => cacheReport(user.id, report)).catch(() => undefined); };
+
+  const endTask = async (task: Task) => {
+    if (!window.confirm(`‘${task.title}’ 주기를 종료할까요? 완료 기록은 리포트에 그대로 남습니다.`)) return;
+    try {
+      const updated = await cycleApi.end(task.id);
+      setTasks((current) => current.map((item) => item.id === task.id ? fromApi(updated) : item));
+      setToast('주기를 종료했어요. 완료 기록은 계속 보관돼요.');
+      refreshReport();
+    } catch (reason) { setToast(reason instanceof Error ? reason.message : '주기를 종료하지 못했어요.'); }
+  };
+
+  const reopenTask = async (task: Task) => {
+    try {
+      const updated = await cycleApi.reopen(task.id);
+      setTasks((current) => current.map((item) => item.id === task.id ? fromApi(updated) : item));
+      setToast('주기를 다시 시작했어요.');
+      refreshReport();
+    } catch (reason) { setToast(reason instanceof Error ? reason.message : '주기를 다시 시작하지 못했어요.'); }
+  };
 
   const saveTask = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -300,17 +328,18 @@ function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) 
       <section className="hero"><div><p className="eyebrow"><span>☀</span> {dateText}</p><h1>오늘도 하나씩,<br /><strong>꼬박꼬박</strong> 챙겨봐요!</h1><p className="hero-copy">{online ? '잊기 쉬운 생활 주기도, 꼬박꼬박.' : '저장된 내용을 보여드리고 있어요. 연결 상태를 확인해 주세요.'}</p></div><Mascot /></section>
       <section className="content-section"><div className="section-heading"><div><span className="title-icon">✓</span><div><h2>오늘 할 일</h2><p>완료한 항목도 오늘 동안 남아 있어요</p></div></div><span className="task-count">{dueTasks.length ? `${dueTasks.length}개 남았어요` : '모두 완료했어요!'}</span></div>{!ready ? <div className="no-result">주기를 불러오는 중이에요…</div> : todayTasks.length ? todayTasks.map((task) => <TaskRow key={task.id} task={task} onToggle={toggleTask} />) : <EmptyState />}</section>
       <section className="progress-card"><div className="progress-copy"><Mascot tiny /><div><span>생활 주기 달성률</span><strong>오늘도 <em>{score}%</em> 꼬박 챙겼어요!</strong></div></div><div className="progress-track"><span style={{ width: `${score}%` }} /></div><span className="progress-number">{score}%</span></section>
-      <section className="upcoming-section"><div className="section-heading compact"><div><span className="title-icon lavender">◷</span><div><h2>다가오는 주기</h2><p>미리 알아두면 마음이 가벼워요</p></div></div><button className="text-button" onClick={() => setView('cycles')}>전체 보기 →</button></div><div className="mini-grid">{tasks.filter((task) => task.daysLeft > 0 && !task.completed).slice(0, 3).map((task) => <button key={task.id} className="mini-card" onClick={() => setView('cycles')}><span className={`task-emoji ${task.color}`}>{task.imageUrl ? <img src={task.imageUrl} alt="" /> : task.emoji}</span><span><small>{task.category}</small><b>{task.title}</b><em>{dday(task.daysLeft)}</em></span></button>)}</div></section>
+      <section className="upcoming-section"><div className="section-heading compact"><div><span className="title-icon lavender">◷</span><div><h2>다가오는 주기</h2><p>미리 알아두면 마음이 가벼워요</p></div></div><button className="text-button" onClick={() => setView('cycles')}>전체 보기 →</button></div><div className="mini-grid">{activeTasks.filter((task) => task.daysLeft > 0 && !task.completed).slice(0, 3).map((task) => <button key={task.id} className="mini-card" onClick={() => setView('cycles')}><span className={`task-emoji ${task.color}`}>{task.imageUrl ? <img src={task.imageUrl} alt="" /> : task.emoji}</span><span><small>{task.category}</small><b>{task.title}</b><em>{dday(task.daysLeft)}</em></span></button>)}</div></section>
     </>}
 
     {view === 'cycles' && <section className="page-view cycles-page">
       <div className="page-title"><div><p className="eyebrow"><span>↻</span> MY CYCLES</p><h1>내 주기 관리</h1><p>생활 속 반복되는 일들을 한곳에서 관리해요.</p></div><button className="primary-button" onClick={openCreate}>＋ 새 주기 추가</button></div>
       <div className="toolbar"><div className="filters">{(['전체', '교체', '청소', '세탁'] as const).map((item) => <button className={filter === item ? 'selected' : ''} key={item} onClick={() => setFilter(item)}>{item}</button>)}</div><label className="search"><span>⌕</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="주기 검색" /></label></div>
-      <div className="cycle-summary"><div><span>전체 주기</span><strong>{tasks.length}</strong></div><div><span>오늘 예정</span><strong>{dueTasks.length}</strong></div><div><span>완료</span><strong>{completed}</strong></div></div>
-      <div className="task-list">{visibleTasks.length ? visibleTasks.map((task) => <TaskRow key={task.id} task={task} onToggle={toggleTask} onEdit={openEdit} onDelete={(item) => void deleteTask(item)} actions />) : <div className="no-result">찾는 주기가 없어요. 새 주기를 등록해 보세요.</div>}</div>
+      <div className="cycle-summary"><div><span>진행 중</span><strong>{activeTasks.length}</strong></div><div><span>오늘 예정</span><strong>{dueTasks.length}</strong></div><div><span>오늘 완료</span><strong>{completed}</strong></div></div>
+      <div className="task-list">{visibleTasks.length ? visibleTasks.map((task) => <TaskRow key={task.id} task={task} onToggle={toggleTask} onEdit={openEdit} onEnd={(item) => void endTask(item)} onDelete={(item) => void deleteTask(item)} actions />) : <div className="no-result">진행 중인 주기가 없어요. 새 주기를 등록해 보세요.</div>}</div>
+      <div className="ended-cycles-panel"><div className="ended-cycles-head"><div><span>ARCHIVE</span><h2>종료한 주기</h2><p>더 이상 알림과 오늘 할 일에 나타나지 않지만, 완료 기록은 리포트에 남아 있어요.</p></div><strong>{endedTasks.length}</strong></div>{visibleEndedTasks.length ? <div className="task-list ended-task-list">{visibleEndedTasks.map((task) => <TaskRow key={task.id} task={task} onReopen={(item) => void reopenTask(item)} onDelete={(item) => void deleteTask(item)} actions />)}</div> : <div className="ended-empty">{endedTasks.length ? '현재 필터에 해당하는 종료 주기가 없어요.' : '종료한 주기가 아직 없어요.'}</div>}</div>
     </section>}
 
-    {view === 'calendar' && <CalendarView tasks={tasks} onSelect={(id) => { const task = tasks.find((item) => item.id === id); if (task) setToast(`${task.title} · ${dday(task.daysLeft)}`); }} />}
+    {view === 'calendar' && <CalendarView tasks={activeTasks} onSelect={(id) => { const task = activeTasks.find((item) => item.id === id); if (task) setToast(`${task.title} · ${dday(task.daysLeft)}`); }} />}
     {view === 'report' && <ReportView userId={user.id} />}
     <div className="floating-stack">
       {showScrollTop && <button className="scroll-top-button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="화면 상단으로 이동">↑</button>}

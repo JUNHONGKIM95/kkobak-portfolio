@@ -31,5 +31,7 @@ public class CycleController {
     @DeleteMapping("/{id}") @ResponseStatus(HttpStatus.NO_CONTENT) public void delete(@AuthenticationPrincipal AuthPrincipal user, @PathVariable String id) { service.delete(id, user.id()); }
     @PostMapping("/{id}/complete") public CycleResponse complete(@AuthenticationPrincipal AuthPrincipal user, @PathVariable String id) { return service.complete(id, user.id()); }
     @DeleteMapping("/{id}/complete") public CycleResponse undo(@AuthenticationPrincipal AuthPrincipal user, @PathVariable String id) { return service.undo(id, user.id()); }
+    @PostMapping("/{id}/end") public CycleResponse end(@AuthenticationPrincipal AuthPrincipal user, @PathVariable String id) { return service.end(id, user.id()); }
+    @DeleteMapping("/{id}/end") public CycleResponse reopen(@AuthenticationPrincipal AuthPrincipal user, @PathVariable String id) { return service.reopen(id, user.id()); }
     @PostMapping("/claim") public ClaimResponse claim(@AuthenticationPrincipal AuthPrincipal user, @Valid @RequestBody ClaimRequest request) { return service.claim(request.ownerKey(), user.id()); }
 }
