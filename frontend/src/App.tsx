@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import AdminPage from './AdminPage';
 import AuthScreen from './AuthScreen';
 import ReportView from './ReportView';
-import { ApiCycle, ApiUser, authApi, compressCycleImage, cycleApi, enablePush, getAuthToken, getLegacyOwnerKey, getPushState, uploadCycleImage } from './api';
+import { ApiCycle, ApiUser, authApi, cacheReport, compressCycleImage, cycleApi, enablePush, getAuthToken, getCachedUser, getLegacyOwnerKey, getPushState, reportApi, uploadCycleImage } from './api';
 
 type View = 'home' | 'cycles' | 'calendar' | 'report';
 type CycleType = '교체' | '청소' | '세탁';
@@ -83,13 +83,33 @@ function fromApi(task: ApiCycle): Task {
   };
 }
 
+function cachedTasks(storageKey: string) {
+  try {
+    const saved = window.localStorage.getItem(storageKey);
+    if (!saved) return { found: false, tasks: [] as Task[] };
+    const parsed = JSON.parse(saved) as Task[];
+    if (!Array.isArray(parsed)) return { found: false, tasks: [] as Task[] };
+    const today = localDateString();
+    const todayTime = new Date(`${today}T00:00:00`).getTime();
+    return {
+      found: true,
+      tasks: parsed.map((task) => ({
+        ...task,
+        completed: task.lastCompletedDate === today,
+        daysLeft: Math.round((new Date(`${task.nextDueDate}T00:00:00`).getTime() - todayTime) / 86_400_000),
+      })),
+    };
+  } catch { return { found: false, tasks: [] as Task[] }; }
+}
+
 export default function App() {
-  const [user, setUser] = useState<ApiUser | null>(null);
-  const [checking, setChecking] = useState(Boolean(getAuthToken()));
+  const initialUser = getCachedUser();
+  const [user, setUser] = useState<ApiUser | null>(initialUser);
+  const [checking, setChecking] = useState(Boolean(getAuthToken() && !initialUser));
 
   useEffect(() => {
     if (!getAuthToken()) return;
-    authApi.me().then(setUser).catch(() => setUser(null)).finally(() => setChecking(false));
+    authApi.me().then(setUser).catch(() => { if (!getAuthToken()) setUser(null); }).finally(() => setChecking(false));
   }, []);
 
   if (checking) return <main className="app-loading"><Mascot /><strong>꼬박꼬박 불러오는 중…</strong></main>;
@@ -113,9 +133,11 @@ function formatShortDate(value: string) {
 }
 
 function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) {
+  const storageKey = `kkobak-tasks-${user.id}`;
+  const [initialTasks] = useState(() => cachedTasks(storageKey));
   const [view, setView] = useState<View>('home');
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [ready, setReady] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks.tasks);
+  const [ready, setReady] = useState(initialTasks.found);
   const [online, setOnline] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -130,25 +152,28 @@ function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) 
   const [notificationState, setNotificationState] = useState<'enabled' | 'disabled' | 'blocked' | 'unavailable'>('disabled');
   const isIos = /iphone|ipad|ipod/i.test(navigator.userAgent);
   const isChromium = /chrome|crios|edga|samsungbrowser/i.test(navigator.userAgent);
-  const storageKey = `kkobak-tasks-${user.id}`;
 
   useEffect(() => {
     const load = async () => {
-      const saved = window.localStorage.getItem(storageKey);
-      if (saved) try { setTasks(JSON.parse(saved) as Task[]); } catch { /* ignore damaged cache */ }
       try {
-        const claimed = await cycleApi.claim(getLegacyOwnerKey());
+        const claimKey = `kkobak-legacy-claimed-${user.id}`;
+        let claimed = { cycles: 0, completions: 0, subscriptions: 0 };
+        if (!window.localStorage.getItem(claimKey)) {
+          claimed = await cycleApi.claim(getLegacyOwnerKey());
+          window.localStorage.setItem(claimKey, '1');
+        }
         const remote = await cycleApi.list();
         setTasks(remote.map(fromApi));
         setOnline(true);
         if (claimed.cycles > 0) setToast(`이 기기의 기존 주기 ${claimed.cycles}개를 계정에 연결했어요`);
+        void reportApi.summary().then((report) => cacheReport(user.id, report)).catch(() => undefined);
       } catch (reason) {
         setOnline(false);
         setToast(reason instanceof Error ? reason.message : '서버에 연결하지 못했어요.');
       } finally { setReady(true); }
     };
     void load();
-  }, [storageKey]);
+  }, [storageKey, user.id]);
 
   useEffect(() => {
     const sync = async () => {
@@ -286,7 +311,7 @@ function CycleHome({ user, onLogout }: { user: ApiUser; onLogout: () => void }) 
     </section>}
 
     {view === 'calendar' && <CalendarView tasks={tasks} onSelect={(id) => { const task = tasks.find((item) => item.id === id); if (task) setToast(`${task.title} · ${dday(task.daysLeft)}`); }} />}
-    {view === 'report' && <ReportView />}
+    {view === 'report' && <ReportView userId={user.id} />}
     <div className="floating-stack">
       {showScrollTop && <button className="scroll-top-button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label="화면 상단으로 이동">↑</button>}
       <button className="floating-add" onClick={openCreate} aria-label="새 주기 추가"><span>＋</span><b>새 주기 추가</b></button>

@@ -9,6 +9,7 @@ import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +29,11 @@ public class CycleService {
     @Transactional(readOnly = true)
     public List<CycleResponse> list(String ownerKey) {
         validateOwner(ownerKey);
-        return cycles.findByOwnerKeyOrderByNextDueDateAsc(ownerKey).stream().map(this::response).toList();
+        LocalDate today = LocalDate.now(APP_ZONE);
+        Set<String> completedToday = Set.copyOf(completions.findCycleIdsByOwnerKeyAndCompletedDate(ownerKey, today));
+        return cycles.findByOwnerKeyOrderByNextDueDateAsc(ownerKey).stream()
+                .map(item -> response(item, today, completedToday.contains(item.getId())))
+                .toList();
     }
 
     @Transactional
@@ -88,7 +93,10 @@ public class CycleService {
 
     private CycleResponse response(CycleItem item) {
         LocalDate today = LocalDate.now(APP_ZONE);
-        boolean completedToday = completions.existsByCycleIdAndOwnerKeyAndCompletedDate(item.getId(), item.getOwnerKey(), today);
+        return response(item, today, completions.existsByCycleIdAndOwnerKeyAndCompletedDate(item.getId(), item.getOwnerKey(), today));
+    }
+
+    private CycleResponse response(CycleItem item, LocalDate today, boolean completedToday) {
         return new CycleResponse(item.getId(), item.getTitle(), item.getCategory(), item.getCycleType(), item.getEmoji(), item.getIntervalValue(), item.getIntervalUnit(), item.getStartDate(), item.getLastCompletedDate(), item.getNextDueDate(), item.getImageUrl(), item.getColor(), completedToday, ChronoUnit.DAYS.between(today, item.getNextDueDate()));
     }
 

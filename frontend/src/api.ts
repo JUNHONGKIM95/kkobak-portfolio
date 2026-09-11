@@ -61,10 +61,34 @@ type LoginResponse = { token: string; user: ApiUser };
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const TOKEN_KEY = 'kkobak-auth-token';
+const USER_KEY = 'kkobak-auth-user';
+const REPORT_CACHE_PREFIX = 'kkobak-report-';
 
 export function getAuthToken() { return window.localStorage.getItem(TOKEN_KEY); }
 export function setAuthToken(token: string) { window.localStorage.setItem(TOKEN_KEY, token); }
-export function clearAuthToken() { window.localStorage.removeItem(TOKEN_KEY); }
+export function getCachedUser(): ApiUser | null {
+  if (!getAuthToken()) return null;
+  try {
+    const value = window.localStorage.getItem(USER_KEY);
+    if (!value) return null;
+    const user = JSON.parse(value) as ApiUser;
+    return user?.id && user?.username ? user : null;
+  } catch { return null; }
+}
+function cacheUser(user: ApiUser) { window.localStorage.setItem(USER_KEY, JSON.stringify(user)); }
+export function clearAuthToken() {
+  window.localStorage.removeItem(TOKEN_KEY);
+  window.localStorage.removeItem(USER_KEY);
+}
+export function getCachedReport(userId: string): ApiReport | null {
+  try {
+    const value = window.localStorage.getItem(`${REPORT_CACHE_PREFIX}${userId}`);
+    return value ? JSON.parse(value) as ApiReport : null;
+  } catch { return null; }
+}
+export function cacheReport(userId: string, report: ApiReport) {
+  window.localStorage.setItem(`${REPORT_CACHE_PREFIX}${userId}`, JSON.stringify(report));
+}
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getAuthToken();
@@ -99,9 +123,14 @@ export const authApi = {
   login: async (username: string, password: string) => {
     const result = await request<LoginResponse>('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     setAuthToken(result.token);
+    cacheUser(result.user);
     return result.user;
   },
-  me: () => request<ApiUser>('/api/auth/me'),
+  me: async () => {
+    const user = await request<ApiUser>('/api/auth/me');
+    cacheUser(user);
+    return user;
+  },
   logout: async () => {
     try { await request<void>('/api/auth/logout', { method: 'POST' }); } finally { clearAuthToken(); }
   },
@@ -122,8 +151,17 @@ export const cycleApi = {
   claim: (ownerKey: string) => request<{ cycles: number; completions: number; subscriptions: number }>('/api/cycles/claim', { method: 'POST', body: JSON.stringify({ ownerKey }) }),
 };
 
+let reportSummaryRequest: { token: string | null; promise: Promise<ApiReport> } | null = null;
 export const reportApi = {
-  summary: () => request<ApiReport>('/api/reports/summary'),
+  summary: () => {
+    const token = getAuthToken();
+    if (reportSummaryRequest?.token === token) return reportSummaryRequest.promise;
+    const current = { token, promise: request<ApiReport>('/api/reports/summary') };
+    reportSummaryRequest = current;
+    const clear = () => { if (reportSummaryRequest === current) reportSummaryRequest = null; };
+    void current.promise.then(clear, clear);
+    return current.promise;
+  },
 };
 
 export async function compressCycleImage(file: File) {

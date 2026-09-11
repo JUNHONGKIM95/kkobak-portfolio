@@ -35,7 +35,9 @@ public class ReportService {
         LocalDate today = LocalDate.now(APP_ZONE);
         List<CycleItem> items = cycles.findByOwnerKeyOrderByNextDueDateAsc(ownerKey);
         List<CycleCompletion> allHistory = completions.findByOwnerKeyOrderByCompletedDateAsc(ownerKey);
-        List<CycleCompletion> history = completions.findByOwnerKeyAndCompletedDateBetweenOrderByCompletedDateAsc(ownerKey, today.minusDays(29), today);
+        List<CycleCompletion> history = allHistory.stream()
+                .filter(item -> !item.getCompletedDate().isBefore(today.minusDays(29)) && !item.getCompletedDate().isAfter(today))
+                .toList();
         Map<LocalDate, Long> byDate = history.stream().collect(Collectors.groupingBy(CycleCompletion::getCompletedDate, Collectors.counting()));
         Map<String, List<CycleCompletion>> byCycle = allHistory.stream().collect(Collectors.groupingBy(CycleCompletion::getCycleId));
 

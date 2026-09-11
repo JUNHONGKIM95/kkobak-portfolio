@@ -34,7 +34,6 @@ class ReportServiceTests {
                 cycleStarting(today));
         when(cycles.findByOwnerKeyOrderByNextDueDateAsc(OWNER)).thenReturn(items);
         when(completions.findByOwnerKeyOrderByCompletedDateAsc(OWNER)).thenReturn(List.of());
-        when(completions.findByOwnerKeyAndCompletedDateBetweenOrderByCompletedDateAsc(OWNER, today.minusDays(29), today)).thenReturn(List.of());
 
         ReportDtos.ReportResponse report = service.summary(OWNER);
 
@@ -60,7 +59,6 @@ class ReportServiceTests {
         org.springframework.test.util.ReflectionTestUtils.setField(item, "id", "cycle-1");
         when(cycles.findByOwnerKeyOrderByNextDueDateAsc(OWNER)).thenReturn(List.of(item));
         when(completions.findByOwnerKeyOrderByCompletedDateAsc(OWNER)).thenReturn(List.of(onTime, late));
-        when(completions.findByOwnerKeyAndCompletedDateBetweenOrderByCompletedDateAsc(OWNER, today.minusDays(29), today)).thenReturn(List.of(onTime, late));
 
         ReportDtos.CycleAchievement achievement = service.summary(OWNER).cycleAchievements().getFirst();
 

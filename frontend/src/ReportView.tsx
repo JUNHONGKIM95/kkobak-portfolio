@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ApiReport, reportApi } from './api';
+import { ApiReport, cacheReport, getCachedReport, reportApi } from './api';
 
 const dayFormat = new Intl.DateTimeFormat('ko-KR', { month: 'numeric', day: 'numeric' });
 
-export default function ReportView() {
-  const [report, setReport] = useState<ApiReport | null>(null);
-  const [loading, setLoading] = useState(true);
+export default function ReportView({ userId }: { userId: string }) {
+  const [initialReport] = useState(() => getCachedReport(userId));
+  const [report, setReport] = useState<ApiReport | null>(initialReport);
+  const [loading, setLoading] = useState(!initialReport);
   const [error, setError] = useState('');
 
   const load = async () => {
-    setLoading(true);
+    if (!report) setLoading(true);
     setError('');
-    try { setReport(await reportApi.summary()); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : '리포트를 불러오지 못했어요.'); }
+    try {
+      const fresh = await reportApi.summary();
+      setReport(fresh);
+      cacheReport(userId, fresh);
+    }
+    catch (reason) { if (!report) setError(reason instanceof Error ? reason.message : '리포트를 불러오지 못했어요.'); }
     finally { setLoading(false); }
   };
 
