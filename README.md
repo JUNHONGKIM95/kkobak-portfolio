@@ -1,3 +1,5 @@
+<img width="1733" height="908" alt="kkobak-social-preview" src="https://github.com/user-attachments/assets/bb22ba07-62ca-4a6d-bf22-9e122ffea175" />
+
 # 꼬박꼬박 · KKOBAK
 
 정수기 필터 교체, 칫솔 교체, 청소와 세탁처럼 잊기 쉬운 생활 주기를 기록하고 알림 받는 웹앱입니다.
